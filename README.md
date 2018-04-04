@@ -1,4 +1,4 @@
-# <uxf-canvas>
+# &lt;uxf-canvas&gt;
 This project provides a [Web Components custom element](https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements) implementation for rendering [.uxf / UML eXchange Format](https://en.wikipedia.org/wiki/UXF) files.
 
 It is currently considered as nigh-unusable pre-pre-alpha software and may be heavily rewritten.
