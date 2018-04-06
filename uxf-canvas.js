@@ -1,5 +1,8 @@
 (function() {
   let umlElements = {
+    'Default': function(UXF, element) {
+      UXF.ctx.strokeRect(element.coordinates.x, element.coordinates.y, element.coordinates.w, element.coordinates.h);
+    },
     'UMLClass': function(UXF, element) {
       let ctx = UXF.ctx;
       // Draw BG
@@ -131,6 +134,8 @@
       // Draw our different element types
       if (umlElements[values.id]) {
         umlElements[values.id](this, values);
+      } else {
+        umlElements["Default"](this, values);
       }
     }
     drawArrow(type, fromX, fromY, toX, toY) {
