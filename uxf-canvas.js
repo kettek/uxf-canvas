@@ -1,44 +1,24 @@
 (function() {
   let umlElements = {
-    'UMLClass': function(UXF, data) {
+    'UMLClass': function(UXF, element) {
       let ctx = UXF.ctx;
-      // TODO: Add "drawText" method
-      let textData = UXF.parseText(data.panel_attributes);
       // Draw BG
-      if (textData.extra.bg) {
-        ctx.fillStyle = textData.extra.bg;
-        ctx.fillRect(data.coordinates.x, data.coordinates.y, data.coordinates.w, data.coordinates.h);
+      if (element.attr.bg) {
+        ctx.fillStyle = element.attr.bg;
+        ctx.fillRect(element.coordinates.x, element.coordinates.y, element.coordinates.w, element.coordinates.h);
       }
       // Render Text
-      let x = 0, y = 0;
-      for (let ti = 0; ti < textData.text.length; ti++) {
-        x = 0;
-        let text = textData.text[ti];
-        let metrics = ctx.measureText(text.value);
-        // FIXME: Absolutely BOGUS height measurement
-        metrics.height = ctx.measureText('M').width;
-        //
-        y += metrics.height + metrics.height/2;
-        ctx.font = (text.style.italics ? 'italic ' : '') + '12px serif';
-  
-        // FIXME
-        x += data.coordinates.w/2;
-        ctx.textAlign = "center";
-  
-        ctx.fillStyle = 'black';
-        ctx.fillText(text.value, data.coordinates.x+x, data.coordinates.y+y, data.coordinates.w);
-      }
-      ctx.strokeRect(data.coordinates.x, data.coordinates.y, data.coordinates.w, data.coordinates.h);
+      ctx.strokeRect(element.coordinates.x, element.coordinates.y, element.coordinates.w, element.coordinates.h);
+      UXF.drawText(element.lines, {c: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
     }, 
-    'Relation': function(UXF, data) {
+    'Relation': function(UXF, element) {
       let ctx = UXF.ctx;
-      let extra = UXF.parseText(data.panel_attributes).extra;
       // Get our type of line. Returned array should have three UXFs that map to the left arrow, the middle line, and the right arrow respectively.
-      let lineType = extra.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
+      let lineType = element.attr.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
       // Get our proper offsets
-      let xOffset = data.coordinates.w - (data.coordinates.w - data.coordinates.x), yOffset = data.coordinates.h - (data.coordinates.h - data.coordinates.y);
+      let xOffset = element.coordinates.w - (element.coordinates.w - element.coordinates.x), yOffset = element.coordinates.h - (element.coordinates.h - element.coordinates.y);
       // Get coordinates as pairs
-      let coords = [], ocoords = data.additional_attributes.split(';');
+      let coords = [], ocoords = element.additional_attributes.split(';');
       for (let i = 0; i < ocoords.length; i+= 2) {
         coords.push(ocoords.slice(i, i+2));
       }
@@ -143,6 +123,11 @@
     drawElement(element) {
       // Read in all our important values
       let values = this.getElementValues(element, {id: '', coordinates: { x:0, y:0, w:0,h:0 }, panel_attributes: '', additional_attributes:''});
+      // Parse the text
+      let parsedAttributes = this.parseContents(values.panel_attributes);
+      values.attr   = parsedAttributes.extra;
+      values.lines  = parsedAttributes.lines;
+      //values.text = this.parseContents(values.panel_attributes);
       // Draw our different element types
       if (umlElements[values.id]) {
         umlElements[values.id](this, values);
@@ -196,8 +181,70 @@
       }
       this.ctx.restore();
     }
-    parseText(source) {
-      let data = {text: [], extra: {}};
+    drawText(text, textOptions) {
+      for (let i = 0; i < text.length; i++) {
+        let formattedText = this.getFormattedText(text[i]);
+        this.renderFormattedText(formattedText, textOptions);
+      }
+    }
+    getFormattedText(text) {
+      let regExp = /(\*|\/|_)(.*?)\1/g;
+      let result = '';
+      let matches = [];
+      while((result = regExp.exec(text)) !== null) {
+        matches.push({t: result[1], s: result.index+1, e: result.index + 1 + result[2].length});
+        matches[matches.length-1].v = text.substring(matches[matches.length-1].s, matches[matches.length-1].e);
+      }
+      let last_s = 0, last_e = 0;
+      for (let i = 0; i < matches.length; i++) {
+        matches[i].c = this.getFormattedText(matches[i].v);
+        if (last_e < matches[i].s) {
+          matches.splice(i, 0, {t: '', s: last_e, e: matches[i].s-1});
+          matches[i].v = text.substring(matches[i].s, matches[i].e);
+          i++;
+          last_e = matches[i].e+1;
+        }
+      }
+      if (matches.length > 0) {
+        let end = {t: '', s: matches[matches.length-1].e+1, e: text.length};
+        end.v = text.substring(end.s, end.e);
+        matches.push(end);
+      }
+      return matches;
+    }
+    renderFormattedText(formattedText, conf) {
+      let offsetX = 0;
+      for (let i = 0; i < formattedText.length; i++) {
+        let textOptions = Object.assign({}, conf);
+        textOptions.u   = textOptions.u || formattedText[i].t === '_';
+        textOptions.i   = textOptions.i || formattedText[i].t === '/';
+        textOptions.b   = textOptions.b || formattedText[i].t === '*';
+        textOptions.x   += offsetX;
+        if (formattedText[i].c && formattedText[i].c.length > 0) {
+          offsetX += this.renderFormattedText(formattedText[i].c, textOptions);
+        } else {
+          offsetX += this.renderText(formattedText[i].v, textOptions);
+        }
+      }
+      conf.x += offsetX;
+      return offsetX;
+    }
+    renderText(text, textOptions) {
+      let width = this.ctx.measureText(text).width;
+      if (textOptions.u) {
+        let height = this.getTextHeight();
+        this.ctx.beginPath();
+        this.ctx.moveTo(textOptions.x, textOptions.y+2);
+        this.ctx.lineTo(textOptions.x+width, textOptions.y+2);
+        this.ctx.stroke();
+      }
+      this.ctx.font = (textOptions.i ? 'italic ' : '') + (textOptions.b ? 'bold ' : '') + '12px serif';
+      this.ctx.fillStyle = (textOptions.c ? textOptions.c : 'black');
+      this.ctx.fillText(text, textOptions.x, textOptions.y, textOptions.w ? textOptions.w : null);
+      return width;
+    }
+    parseContents(source) {
+      let data = {lines: [], extra: {}};
       let lines = source.split(/\n/);
       for (let li = 0; li < lines.length; li++) {
         let line = lines[li];
@@ -209,19 +256,16 @@
           data.extra[match[1].trim()] = match[2];
         // It is text
         } else {
-          let textObj = {value: '', style: {}};
-          let regExpItalics = /([\/])([^\/]*)/g;
-          let matchItalics = regExpItalics.exec(line);
-          if (matchItalics) {
-            textObj.style.italics = true;
-            textObj.value = matchItalics[2];
-          } else {
-            textObj.value = line;
-          }
-          data.text.push(textObj);
+          data.lines.push(line);
         }
       }
       return data;
+    }
+    getTextHeight(text, conf) {
+      if (conf) {
+        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
+      }
+      return(this.ctx.measureText('M').width);
     }
     getElementValues(element, names, fillWithBlank) {
       let values = names;
