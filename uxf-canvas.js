@@ -16,49 +16,8 @@
     }, 
     'Relation': function(UXF, element) {
       let ctx = UXF.ctx;
-      // Get our type of line. Returned array should have three UXFs that map to the left arrow, the middle line, and the right arrow respectively.
-      let lineType = element.attr.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
-      // Get our proper offsets
-      let xOffset = element.coordinates.w - (element.coordinates.w - element.coordinates.x), yOffset = element.coordinates.h - (element.coordinates.h - element.coordinates.y);
-      // Get coordinates as pairs
-      let coords = [], ocoords = element.additional_attributes.split(';');
-      for (let i = 0; i < ocoords.length; i+= 2) {
-        coords.push(ocoords.slice(i, i+2));
-      }
-      for (let i = 0; i < coords.length; i++) {
-        coords[i][0] = parseInt(coords[i][0]);
-        coords[i][1] = parseInt(coords[i][1]);
-      }
-      // Begin our line drawing
-      ctx.lineWidth = 1;
-      // Set our line type
-      if (lineType[1] == '-') {
-        ctx.setLineDash([]);
-      } else if (lineType[1] == '.') {
-        ctx.setLineDash([6, 6]);
-      } else if (lineType[1] == '..') {
-        ctx.setLineDash([2, 2]);
-      }
-      // Make the line path
-      ctx.beginPath();
-      for (let i = 0; i < coords.length; i++) {
-        // Get our coordinate pair
-        let x = parseInt(coords[i][0]), y = parseInt(coords[i][1]);
-        // Create the line
-        ctx.lineTo(xOffset+x, yOffset+y);
-      }
-      ctx.stroke();
-      // Draw arrow heads
-      if (lineType[0]) {
-        let x1 = coords[0][0], y1 = coords[0][1];
-        let x2 = coords[1][0], y2 = coords[1][1];
-        UXF.drawArrow(lineType[0], xOffset+x1, yOffset+y1, xOffset+x2, yOffset+y2);
-      }
-      if (lineType[2]) {
-        let x1 = coords[coords.length-1][0], y1 = coords[coords.length-1][1];
-        let x2 = coords[coords.length-2][0], y2 = coords[coords.length-2][1];
-        UXF.drawArrow(lineType[2], xOffset+x1, yOffset+y1, xOffset+x2, yOffset+y2);
-      }
+      let lineData = UXF.getLineData(element);
+      UXF.drawLine(lineData);
     }
   };
   
@@ -136,6 +95,38 @@
         umlElements[values.id](this, values);
       } else {
         umlElements["Default"](this, values);
+      }
+    }
+    drawLine(lineData) {
+      // Begin our line drawing
+      this.ctx.lineWidth = 1;
+      // Set our line type
+      if (lineData.type[1] == '-') {
+        this.ctx.setLineDash([]);
+      } else if (lineData.type[1] == '.') {
+        this.ctx.setLineDash([6, 6]);
+      } else if (lineData.type[1] == '..') {
+        this.ctx.setLineDash([2, 2]);
+      }
+      // Make the line path
+      this.ctx.beginPath();
+      for (let i = 0; i < lineData.points.length; i++) {
+        // Get our coordinate pair
+        let x = parseInt(lineData.points[i][0]), y = parseInt(lineData.points[i][1]);
+        // Create the line
+        this.ctx.lineTo(lineData.points[i][0], lineData.points[i][1]);
+      }
+      this.ctx.stroke();
+      // Draw arrow heads
+      if (lineData.type[0]) {
+        let x1 = lineData.points[0][0], y1 = lineData.points[0][1];
+        let x2 = lineData.points[1][0], y2 = lineData.points[1][1];
+        this.drawArrow(lineData.type[0], x1, y1, x2, y2);
+      }
+      if (lineData.type[2]) {
+        let x1 = lineData.points[lineData.points.length-1][0], y1 = lineData.points[lineData.points.length-1][1];
+        let x2 = lineData.points[lineData.points.length-2][0], y2 = lineData.points[lineData.points.length-2][1];
+        this.drawArrow(lineData.type[2], x1, y1, x2, y2);
       }
     }
     drawArrow(type, fromX, fromY, toX, toY) {
@@ -288,6 +279,21 @@
         }
       }
       return values;
+    }
+    getLineData(element) {
+      let lineData = { type: ['','-',''], points: [] };
+      // Get our type of line. Returned array should have three UXFs that map to the left arrow, the middle line, and the right arrow respectively.
+      lineData.type = element.attr.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
+      // Get coordinates as pairs
+      let points = element.additional_attributes.split(';');
+      for (let i = 0; i < points.length; i+= 2) {
+        lineData.points.push(points.slice(i, i+2));
+      }
+      for (let i = 0; i < lineData.points.length; i++) {
+        lineData.points[i][0] = parseInt(lineData.points[i][0])+element.coordinates.x;
+        lineData.points[i][1] = parseInt(lineData.points[i][1])+element.coordinates.y;
+      }
+      return lineData;
     }
   }
   window.customElements.define('uxf-canvas', UXFCanvas);
