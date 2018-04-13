@@ -43,7 +43,7 @@
     }
     connectedCallback() {
       // Is this even appropriate?
-      this.style.display = 'inline-block';
+      if (!this.style.display) this.style.display = 'inline-block';
       setTimeout(() => {
         this.draw();
       }, 5)
@@ -52,8 +52,10 @@
       if (oldValue == newValue) return;
   
       if (name === 'width' || name === 'height') {
-        this.canvas.setAttribute(name, newValue);
-        this.draw();
+        if (this.canvas.getAttribute(name) < newValue) {
+          this.canvas.setAttribute(name, newValue);
+          this.draw();
+        }
       } else if (name === 'src') {
         this.load(newValue);
       }
@@ -79,18 +81,21 @@
       document.getElementsByTagName('head')[0].appendChild(link);
     }
     draw() {
-      this.ctx = this.canvas.getContext('2d');
-      this.ctx.save();
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      this.ctx.translate(0.5, 0.5);
       // Draw our diagram(s) -- does UXF even support multiple diagrams in an object?
       let diagramNodes = this.getElementsByTagName('diagram');
       for (let di = 0; di < diagramNodes.length; di++) {
         let parsedElements = [];
         let elementNodes = diagramNodes[di].getElementsByTagName('element');
+        // Keep track of our largest X and Y values so we can resize the canvas
+        let lastX = 0;
+        let lastY = 0;
         // Parse our UXF elements
         for (let ei = 0; ei < elementNodes.length; ei++) {
           parsedElements.push(this.parseElement(elementNodes[ei]));
+          let curX = parsedElements[ei].coordinates.x + parsedElements[ei].coordinates.w;
+          let curY = parsedElements[ei].coordinates.y + parsedElements[ei].coordinates.h;
+          if (curX > lastX) lastX = curX;
+          if (curY > lastY) lastY = curY;
         }
         // Sort by their layer attribute
         parsedElements.sort(function(a, b) {
@@ -98,12 +103,23 @@
               lB = b.attr.layer || 0;
           return (lA < lB ? -1 : lA > lB ? 1 : 0);
         });
+        // Resize our canvas
+        if (this.canvas.getAttribute('width') < lastX) {
+          this.canvas.setAttribute('width', lastX);
+        }
+        if (this.canvas.getAttribute('height') < lastY) {
+          this.canvas.setAttribute('height', lastY);
+        }
         // Draw!
+        this.ctx = this.canvas.getContext('2d');
+        this.ctx.save();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.translate(0.5, 0.5);
         for (let pi = 0; pi < parsedElements.length; pi++) {
           this.drawElement(parsedElements[pi]);
         }
+        this.ctx.restore();
       }
-      this.ctx.restore();
     }
     parseElement(element) {
       let values = this.getElementValues(element, {id: '', coordinates: { x:0, y:0, w:0,h:0 }, panel_attributes: '', additional_attributes:''});
@@ -211,9 +227,13 @@
       this.ctx.restore();
     }
     drawText(text, textOptions) {
+      let startX = textOptions.x;
+      let startY = textOptions.y;
       for (let i = 0; i < text.length; i++) {
         let formattedText = this.getFormattedText(text[i]);
         this.renderFormattedText(formattedText, textOptions);
+        textOptions.x = startX;
+        textOptions.y += this.getTextHeight(textOptions);
       }
     }
     getFormattedText(text) {
@@ -301,7 +321,7 @@
         this.ctx.setLineDash([2, 2]);
       }
     }
-    getTextHeight(text, conf) {
+    getTextHeight(conf) {
       if (conf) {
         this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
       }
