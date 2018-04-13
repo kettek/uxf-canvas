@@ -1,23 +1,35 @@
 (function() {
   let umlElements = {
     'Default': function(UXF, element) {
-      UXF.ctx.strokeRect(element.coordinates.x, element.coordinates.y, element.coordinates.w, element.coordinates.h);
+      UXF.drawBox({
+          x: element.coordinates.x
+        , y: element.coordinates.y
+        , w: element.coordinates.w
+        , h: element.coordinates.h
+        , fg: element.attr.fg
+        , bg: element.attr.bg
+      });
+      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
     },
     'UMLClass': function(UXF, element) {
-      let ctx = UXF.ctx;
-      // Draw BG
-      if (element.attr.bg) {
-        ctx.fillStyle = element.attr.bg;
-        ctx.fillRect(element.coordinates.x, element.coordinates.y, element.coordinates.w, element.coordinates.h);
-      }
+      // Draw Box
+      UXF.drawBox({
+          x: element.coordinates.x
+        , y: element.coordinates.y
+        , w: element.coordinates.w
+        , h: element.coordinates.h
+        , fg: element.attr.fg
+        , bg: element.attr.bg
+        , lineStyle: UXF.getLineData(element)[1]
+      });
       // Render Text
-      ctx.strokeRect(element.coordinates.x, element.coordinates.y, element.coordinates.w, element.coordinates.h);
-      UXF.drawText(element.lines, {c: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
+      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
     }, 
     'Relation': function(UXF, element) {
       let ctx = UXF.ctx;
       let lineData = UXF.getLineData(element);
-      UXF.drawLine(lineData);
+      UXF.drawLines(lineData);
+      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
     }
   };
   
@@ -74,40 +86,61 @@
       // Draw our diagram(s) -- does UXF even support multiple diagrams in an object?
       let diagramNodes = this.getElementsByTagName('diagram');
       for (let di = 0; di < diagramNodes.length; di++) {
+        let parsedElements = [];
         let elementNodes = diagramNodes[di].getElementsByTagName('element');
-        // TODO: sort elementNodes by their layer attribute
+        // Parse our UXF elements
         for (let ei = 0; ei < elementNodes.length; ei++) {
-  	      this.drawElement(elementNodes[ei]);
+          parsedElements.push(this.parseElement(elementNodes[ei]));
+        }
+        // Sort by their layer attribute
+        parsedElements.sort(function(a, b) {
+          let lA = a.attr.layer || 0,
+              lB = b.attr.layer || 0;
+          return (lA < lB ? -1 : lA > lB ? 1 : 0);
+        });
+        // Draw!
+        for (let pi = 0; pi < parsedElements.length; pi++) {
+          this.drawElement(parsedElements[pi]);
         }
       }
       this.ctx.restore();
     }
-    drawElement(element) {
-      // Read in all our important values
+    parseElement(element) {
       let values = this.getElementValues(element, {id: '', coordinates: { x:0, y:0, w:0,h:0 }, panel_attributes: '', additional_attributes:''});
-      // Parse the text
       let parsedAttributes = this.parseContents(values.panel_attributes);
       values.attr   = parsedAttributes.extra;
       values.lines  = parsedAttributes.lines;
-      //values.text = this.parseContents(values.panel_attributes);
-      // Draw our different element types
-      if (umlElements[values.id]) {
-        umlElements[values.id](this, values);
+      return values;
+    }
+    drawElement(element) {
+      if (umlElements[element.id]) {
+        umlElements[element.id](this, element);
       } else {
-        umlElements["Default"](this, values);
+        umlElements["Default"](this, element);
       }
     }
-    drawLine(lineData) {
+    drawBox(boxData) {
+      boxData.fg = boxData.fg || 'black';
+      boxData.lineStyle = boxData.lineStyle || '-';
+      // Set alpha to be like umlet
+      this.ctx.globalAlpha = 0.5;
+      // Draw BG
+      if (boxData.bg) {
+        this.ctx.fillStyle = boxData.bg;
+        this.ctx.fillRect(boxData.x, boxData.y, boxData.w, boxData.h);
+      }
+      // Reset alpha
+      this.ctx.globalAlpha = 1.0;
+      // Set stroke style
+      this.setLineStyle(boxData.lineStyle);
+      // Stroke box
+      this.ctx.strokeRect(boxData.x, boxData.y, boxData.w, boxData.h);
+    }
+    drawLines(lineData) {
       // Begin our line drawing
       this.ctx.lineWidth = 1;
       // Set our line type
-      if (lineData.type[1] == '-') {
-        this.ctx.setLineDash([]);
-      } else if (lineData.type[1] == '.') {
-        this.ctx.setLineDash([6, 6]);
-      } else if (lineData.type[1] == '..') {
-        this.ctx.setLineDash([2, 2]);
-      }
+      this.setLineStyle(lineData.style[1]);
       // Make the line path
       this.ctx.beginPath();
       for (let i = 0; i < lineData.points.length; i++) {
@@ -118,15 +151,15 @@
       }
       this.ctx.stroke();
       // Draw arrow heads
-      if (lineData.type[0]) {
+      if (lineData.style[0]) {
         let x1 = lineData.points[0][0], y1 = lineData.points[0][1];
         let x2 = lineData.points[1][0], y2 = lineData.points[1][1];
-        this.drawArrow(lineData.type[0], x1, y1, x2, y2);
+        this.drawArrow(lineData.style[0], x1, y1, x2, y2);
       }
-      if (lineData.type[2]) {
+      if (lineData.style[2]) {
         let x1 = lineData.points[lineData.points.length-1][0], y1 = lineData.points[lineData.points.length-1][1];
         let x2 = lineData.points[lineData.points.length-2][0], y2 = lineData.points[lineData.points.length-2][1];
-        this.drawArrow(lineData.type[2], x1, y1, x2, y2);
+        this.drawArrow(lineData.style[2], x1, y1, x2, y2);
       }
     }
     drawArrow(type, fromX, fromY, toX, toY) {
@@ -235,7 +268,7 @@
         this.ctx.stroke();
       }
       this.ctx.font = (textOptions.i ? 'italic ' : '') + (textOptions.b ? 'bold ' : '') + '12px serif';
-      this.ctx.fillStyle = (textOptions.c ? textOptions.c : 'black');
+      this.ctx.fillStyle = (textOptions.fg ? textOptions.fg : 'black');
       this.ctx.fillText(text, textOptions.x, textOptions.y, textOptions.w ? textOptions.w : null);
       return width;
     }
@@ -256,6 +289,17 @@
         }
       }
       return data;
+    }
+    setLineStyle(lineStyle) {
+      if (!lineStyle) return;
+      // Set our line style
+      if (lineStyle == '-') {
+        this.ctx.setLineDash([]);
+      } else if (lineStyle == '.') {
+        this.ctx.setLineDash([6, 6]);
+      } else if (lineStyle == '..') {
+        this.ctx.setLineDash([2, 2]);
+      }
     }
     getTextHeight(text, conf) {
       if (conf) {
@@ -281,9 +325,10 @@
       return values;
     }
     getLineData(element) {
-      let lineData = { type: ['','-',''], points: [] };
-      // Get our type of line. Returned array should have three UXFs that map to the left arrow, the middle line, and the right arrow respectively.
-      lineData.type = element.attr.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
+      let lineData = { style: ['','-',''], points: [] };
+      if (!element.attr.lt) return lineData;
+      // Get our style of line. Returned array should have three UXFs that map to the left arrow, the middle line, and the right arrow respectively.
+      lineData.style = element.attr.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
       // Get coordinates as pairs
       let points = element.additional_attributes.split(';');
       for (let i = 0; i < points.length; i+= 2) {
