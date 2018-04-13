@@ -9,7 +9,13 @@
         , fg: element.attr.fg
         , bg: element.attr.bg
       });
-      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
+      // Draw Lines
+      let y = element.coordinates.y;
+      for (let i = 0; i < element.lines.length; i++) {
+        // TODO: crop by width and height
+        y += UXF.getTextHeight();
+        UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h });
+      }
     },
     'UMLClass': function(UXF, element) {
       // Draw Box
@@ -22,11 +28,42 @@
         , bg: element.attr.bg
         , lineStyle: UXF.getLineData(element)[1]
       });
-      // Render Text
-      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
+      // Draw Text
+      let y = element.coordinates.y;
+      for (let i = 0; i < element.lines.length; i++) {
+        // TODO: crop by width and height
+        y += UXF.getTextHeight();
+        if (element.lines[i] == '--') {
+          UXF.drawLines({style: ['','--',''], points: [[element.coordinates.x, y], [element.coordinates.x+element.coordinates.w, y]]});
+        } else {
+          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h });
+        }
+      }
     }, 
+    'UMLGeneric': function(UXF, element) {
+      // Draw Box
+      UXF.drawBox({
+          x: element.coordinates.x
+        , y: element.coordinates.y
+        , w: element.coordinates.w
+        , h: element.coordinates.h
+        , fg: element.attr.fg
+        , bg: element.attr.bg
+        , lineStyle: UXF.getLineData(element)[1]
+      });
+      // Draw Text
+      let y = element.coordinates.y;
+      for (let i = 0; i < element.lines.length; i++) {
+        // TODO: crop by width and height
+        y += UXF.getTextHeight();
+        if (element.lines[i] == '--') {
+          UXF.drawLines({style: ['','--',''], points: [[element.coordinates.x, y], [element.coordinates.x+element.coordinates.w, y]]});
+        } else {
+          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h });
+        }
+      }
+    },
     'Relation': function(UXF, element) {
-      let ctx = UXF.ctx;
       let lineData = UXF.getLineData(element);
       UXF.drawLines(lineData);
       UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
@@ -230,11 +267,15 @@
       let startX = textOptions.x;
       let startY = textOptions.y;
       for (let i = 0; i < text.length; i++) {
-        let formattedText = this.getFormattedText(text[i]);
-        this.renderFormattedText(formattedText, textOptions);
+        this.drawTextLine(text[i], textOptions);
         textOptions.x = startX;
         textOptions.y += this.getTextHeight(textOptions);
       }
+    }
+    drawTextLine(line, textOptions) {
+      // "padding"
+      textOptions.x += 2, textOptions.y += 2;
+      this.renderFormattedText(this.getFormattedText(line), textOptions);
     }
     getFormattedText(text) {
       let regExp = /(\*|\/|_)(.*?)\1/g;
