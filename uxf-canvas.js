@@ -30,13 +30,15 @@
       });
       // Draw Text
       let y = element.coordinates.y;
+      let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
         if (element.lines[i] == '--') {
           UXF.drawLines({style: ['','--',''], points: [[element.coordinates.x, y], [element.coordinates.x+element.coordinates.w, y]]});
+          isHeading = false;
         } else {
-          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h });
+          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h, align: isHeading ? 'center' : ''});
         }
       }
     }, 
@@ -273,8 +275,16 @@
       }
     }
     drawTextLine(line, textOptions) {
-      // "padding"
-      textOptions.x += 2, textOptions.y += 2;
+      let TEXT_PADDING = 2;
+      // TODO: set our font styling here
+      textOptions.y += TEXT_PADDING;
+      if (textOptions.align === 'center') {
+        let width = this.ctx.measureText(line).width;
+        textOptions.x += textOptions.w/2;
+        textOptions.x -= width/2;
+      } else {
+        textOptions.x += TEXT_PADDING;
+      }
       this.renderFormattedText(this.getFormattedText(line), textOptions);
     }
     getFormattedText(text) {
