@@ -276,6 +276,10 @@
     }
     drawTextLine(line, textOptions) {
       let TEXT_PADDING = 2;
+      // Clip our rendering to the provided width + height
+      this.ctx.save();
+      this.ctx.rect(textOptions.x, textOptions.y - textOptions.h/2, textOptions.w, textOptions.h);
+      this.ctx.clip();
       // TODO: set our font styling here
       textOptions.y += TEXT_PADDING;
       if (textOptions.align === 'center') {
@@ -286,6 +290,8 @@
         textOptions.x += TEXT_PADDING;
       }
       this.renderFormattedText(this.getFormattedText(line), textOptions);
+      // Restore to pre-clip state
+      this.ctx.restore();
     }
     getFormattedText(text) {
       let regExp = /(\*|\/|_)(.*?)\1/g;
@@ -340,7 +346,7 @@
       }
       this.ctx.font = (textOptions.i ? 'italic ' : '') + (textOptions.b ? 'bold ' : '') + '12px serif';
       this.ctx.fillStyle = (textOptions.fg ? textOptions.fg : 'black');
-      this.ctx.fillText(text, textOptions.x, textOptions.y, textOptions.w ? textOptions.w : null);
+      this.ctx.fillText(text, textOptions.x, textOptions.y);
       return width;
     }
     parseContents(source) {
