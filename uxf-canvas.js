@@ -1,76 +1,102 @@
 (function() {
   let umlElements = {
     'Default': function(UXF, element) {
+      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
       UXF.drawBox({
-          x: element.coordinates.x
-        , y: element.coordinates.y
-        , w: element.coordinates.w
-        , h: element.coordinates.h
+          x: x
+        , y: y
+        , w: w
+        , h: h
         , fg: element.attr.fg
         , bg: element.attr.bg
       });
       // Draw Lines
-      let y = element.coordinates.y;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
-        UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h });
+        UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h });
+      }
+    },
+    'UMLObject': function(UXF, element) {
+      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
+      // Draw Box
+      UXF.drawBox({
+          x: x
+        , y: y
+        , w: w
+        , h: h
+        , fg: element.attr.fg
+        , bg: element.attr.bg
+        , lineStyle: UXF.getLineData(element)[1]
+      });
+      // Draw Text
+      let isHeading = true;
+      for (let i = 0; i < element.lines.length; i++) {
+        // TODO: crop by width and height
+        y += UXF.getTextHeight();
+        if (element.lines[i] == '--') {
+          UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
+          isHeading = false;
+        } else {
+          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
+        }
       }
     },
     'UMLClass': function(UXF, element) {
+      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
       // Draw Box
       UXF.drawBox({
-          x: element.coordinates.x
-        , y: element.coordinates.y
-        , w: element.coordinates.w
-        , h: element.coordinates.h
+          x: x
+        , y: y
+        , w: w
+        , h: h
         , fg: element.attr.fg
         , bg: element.attr.bg
         , lineStyle: UXF.getLineData(element)[1]
       });
       // Draw Text
-      let y = element.coordinates.y;
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
         if (element.lines[i] == '--') {
-          UXF.drawLines({style: ['','--',''], points: [[element.coordinates.x, y], [element.coordinates.x+element.coordinates.w, y]]});
+          UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h, align: isHeading ? 'center' : ''});
+          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
-    }, 
+    },
     'UMLGeneric': function(UXF, element) {
+      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
       // Draw Box
       UXF.drawBox({
-          x: element.coordinates.x
-        , y: element.coordinates.y
-        , w: element.coordinates.w
-        , h: element.coordinates.h
+          x: x
+        , y: y
+        , w: w
+        , h: h
         , fg: element.attr.fg
         , bg: element.attr.bg
         , lineStyle: UXF.getLineData(element)[1]
       });
       // Draw Text
-      let y = element.coordinates.y;
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
         if (element.lines[i] == '--') {
-          UXF.drawLines({style: ['','--',''], points: [[element.coordinates.x, y], [element.coordinates.x+element.coordinates.w, y]]});
+          UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: element.coordinates.x, y: y, w: element.coordinates.w, h: element.coordinates.h, align: isHeading ? 'center' : ''});
+          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
     },
     'Relation': function(UXF, element) {
+      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
       let lineData = UXF.getLineData(element);
       UXF.drawLines(lineData);
-      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: element.coordinates.x, y: element.coordinates.y + UXF.getTextHeight(), w: element.coordinates.w, h: element.coordinates.h});
+      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: x, y: y + UXF.getTextHeight(), w: w, h: h});
     }
   };
   
@@ -80,6 +106,7 @@
       super();
       var shadow = this.attachShadow({mode: 'open'});
       this.canvas = document.createElement('canvas');
+      this.offscreenCanvas = document.createElement('canvas');
       shadow.appendChild(this.canvas);
     }
     connectedCallback() {
@@ -152,14 +179,22 @@
           this.canvas.setAttribute('height', lastY);
         }
         // Draw!
-        this.ctx = this.canvas.getContext('2d');
-        this.ctx.save();
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.translate(0.5, 0.5);
+        let mainCtx = this.canvas.getContext('2d');
+        mainCtx.save();
+        mainCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        //
+        this.ctx = this.offscreenCanvas.getContext('2d');
         for (let pi = 0; pi < parsedElements.length; pi++) {
+          let element = parsedElements[pi];
+          this.offscreenCanvas.width = element.coordinates.w+1;
+          this.offscreenCanvas.height = element.coordinates.h+1;
+          this.ctx.save();
+          this.ctx.translate(.5,.5);
           this.drawElement(parsedElements[pi]);
+          this.ctx.restore();
+          mainCtx.drawImage(this.offscreenCanvas, element.coordinates.x, element.coordinates.y, element.coordinates.w+1, element.coordinates.h+1);
         }
-        this.ctx.restore();
+        mainCtx.restore();
       }
     }
     parseElement(element) {
@@ -414,8 +449,8 @@
         lineData.points.push(points.slice(i, i+2));
       }
       for (let i = 0; i < lineData.points.length; i++) {
-        lineData.points[i][0] = parseInt(lineData.points[i][0])+element.coordinates.x;
-        lineData.points[i][1] = parseInt(lineData.points[i][1])+element.coordinates.y;
+        lineData.points[i][0] = parseInt(lineData.points[i][0]);
+        lineData.points[i][1] = parseInt(lineData.points[i][1]);
       }
       return lineData;
     }
