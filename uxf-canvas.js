@@ -263,13 +263,6 @@
         mainCtx.restore();
       }
     }
-    parseElement(element) {
-      let values = this.getElementValues(element, {id: '', coordinates: { x:0, y:0, w:0,h:0 }, panel_attributes: '', additional_attributes:''});
-      let parsedAttributes = this.parseContents(values.panel_attributes);
-      values.attr   = parsedAttributes.extra;
-      values.lines  = parsedAttributes.lines;
-      return values;
-    }
     drawElement(element) {
       if (umlElements[element.id]) {
         umlElements[element.id](this, element);
@@ -488,39 +481,6 @@
         this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
       }
       return(this.ctx.measureText('M').width+5);
-    }
-    getElementValues(element, names, fillWithBlank) {
-      let values = names;
-      for (let ci = 0; ci < element.children.length; ci++) {
-        let key = element.children[ci].tagName.toLowerCase();
-        let match = names[key];
-        if (match !== undefined) {
-          if (typeof match === "number") {
-            values[key] = parseInt(element.children[ci].innerText);
-          } else if (match instanceof Object) {
-            values[key] = this.getElementValues(element.children[ci], match);
-          } else {
-            values[key] = element.children[ci].innerText;
-          }
-        }
-      }
-      return values;
-    }
-    getLineData(element) {
-      let lineData = { style: ['','-',''], points: [] };
-      if (!element.lt) return lineData;
-      // Get our style of line. Returned array should have three UXFs that map to the left arrow, the middle line, and the right arrow respectively.
-      lineData.style = element.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
-      // Get coordinates as pairs
-      let points = element.attrs.split(';');
-      for (let i = 0; i < points.length; i+= 2) {
-        lineData.points.push(points.slice(i, i+2));
-      }
-      for (let i = 0; i < lineData.points.length; i++) {
-        lineData.points[i][0] = parseInt(lineData.points[i][0]);
-        lineData.points[i][1] = parseInt(lineData.points[i][1]);
-      }
-      return lineData;
     }
   }
   window.customElements.define('uxf-canvas', UXFCanvas);
