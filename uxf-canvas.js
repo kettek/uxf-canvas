@@ -1,40 +1,37 @@
 (function() {
   let umlElements = {
     'Default': function(UXF, element) {
-      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
-      UXF.drawBox({
-          x: x
-        , y: y
-        , w: w
-        , h: h
-        , fg: element.attr.fg
-        , bg: element.attr.bg
-      });
+      UXF.drawBox(element);
       // Draw Lines
+      let x = 0, y = 0;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
-        UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h });
+        if ((/^(-|--)$/).test(element.lines[i]) ) {
+          UXF.drawLines({style: ['','--',''], points: [[x, y], [x+element.w, y]]});
+        } else {
+          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: element.w, h: element.h });
+        }
       }
     },
     'UMLObject': function(UXF, element) {
-      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
+      let x = 0, y = 0, w = element.w, h = element.h;
       // Draw Box
       UXF.drawBox({
           x: x
         , y: y
         , w: w
         , h: h
-        , fg: element.attr.fg
-        , bg: element.attr.bg
-        , lineStyle: UXF.getLineData(element)[1]
+        , fg: element.fg
+        , bg: element.bg
+        , lineStyle: element.getLineData()[1]
       });
       // Draw Text
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
-        if (element.lines[i] == '--') {
+        if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
@@ -43,63 +40,132 @@
       }
     },
     'UMLClass': function(UXF, element) {
-      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
+      let x = 0, y = 0, w = element.w, h = element.h;
       // Draw Box
-      UXF.drawBox({
-          x: x
-        , y: y
-        , w: w
-        , h: h
-        , fg: element.attr.fg
-        , bg: element.attr.bg
-        , lineStyle: UXF.getLineData(element)[1]
-      });
+      UXF.drawBox(element);
       // Draw Text
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
-        if (element.lines[i] == '--') {
+        if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
+          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
     },
     'UMLGeneric': function(UXF, element) {
-      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
+      let x = 0, y = 0, w = element.w, h = element.h;
       // Draw Box
-      UXF.drawBox({
-          x: x
-        , y: y
-        , w: w
-        , h: h
-        , fg: element.attr.fg
-        , bg: element.attr.bg
-        , lineStyle: UXF.getLineData(element)[1]
-      });
+      UXF.drawBox(element);
       // Draw Text
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         y += UXF.getTextHeight();
-        if (element.lines[i] == '--') {
+        if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
+          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
     },
     'Relation': function(UXF, element) {
-      let x = 0, y = 0, w = element.coordinates.w, h = element.coordinates.h;
-      let lineData = UXF.getLineData(element);
+      let x = 0, y = 0, w = element.w, h = element.h;
+      let lineData = element.getLineData();
       UXF.drawLines(lineData);
-      UXF.drawText(element.lines, {fg: element.attr.fg ? element.attr.fg : 'black', x: x, y: y + UXF.getTextHeight(), w: w, h: h});
+      UXF.drawText(element.lines, {fg: element.fg ? element.fg : 'black', x: x, y: y + UXF.getTextHeight(), w: w, h: h});
     }
   };
-  
+
+  class UXFElement {
+    constructor(xml) {
+      this.w = 0;
+      this.h = 0;
+      this.x = 0;
+      this.y = 0;
+      this.layer = 0;
+      this.attrs = '';
+
+      if (xml) this.parseXML(xml);
+    }
+    parseXML(xml) {
+      // Read our XML element's contained values.
+      let values = this.getXMLValues(xml, {id: '', coordinates: { x:0, y:0, w:0,h:0 }, panel_attributes: '', additional_attributes:''});
+      // Sync the element with the values.
+      this.id     = values.id;
+      this.x      = values.coordinates.x;
+      this.y      = values.coordinates.y;
+      this.w      = values.coordinates.w;
+      this.h      = values.coordinates.h;
+      this.attrs  = values.additional_attributes;
+      // Read the element's contained content into lines and variables.
+      let parsedAttributes = this.parseXMLContents(values.panel_attributes);
+      this.lines  = parsedAttributes.lines;
+      // Merge the additional properties with this object.
+      for (let i in parsedAttributes.extra) {
+        this[i] = parsedAttributes.extra[i];
+      }
+    }
+    getXMLValues(xml, names, fillWithBlank) {
+      let values = names;
+      for (let ci = 0; ci < xml.children.length; ci++) {
+        let key = xml.children[ci].tagName.toLowerCase();
+        let match = names[key];
+        if (match !== undefined) {
+          if (typeof match === "number") {
+            values[key] = parseInt(xml.children[ci].innerText);
+          } else if (match instanceof Object) {
+            values[key] = this.getXMLValues(xml.children[ci], match);
+          } else {
+            values[key] = xml.children[ci].innerText;
+          }
+        }
+      }
+      return values;
+    }
+    parseXMLContents(source) {
+      let data = {lines: [], extra: {}};
+      let lines = source.split(/\n/);
+      for (let li = 0; li < lines.length; li++) {
+        let line = lines[li];
+        let regExp = /([^=\s]*[^\s])=(.*)/g;
+        let match = regExp.exec(line);
+        // It is a key=value pair
+        if (match) {
+          // TODO: process whitespace during regex
+          data.extra[match[1].trim()] = match[2];
+        // It is text
+        } else {
+          data.lines.push(line);
+        }
+      }
+      return data;
+    }
+    getLineData() {
+      let lineData = { style: ['','-',''], points: [] };
+      if (!this.lt) return lineData;
+      // Get our style of line. Returned array should have three elements that map to the left arrow, the middle line, and the right arrow respectively.
+      lineData.style = this.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
+      // Get coordinates as pairs
+      let points = this.attrs.split(';');
+      for (let i = 0; i < points.length; i+= 2) {
+        lineData.points.push(points.slice(i, i+2));
+      }
+      for (let i = 0; i < lineData.points.length; i++) {
+        lineData.points[i][0] = parseInt(lineData.points[i][0]);
+        lineData.points[i][1] = parseInt(lineData.points[i][1]);
+      }
+      return lineData;
+    }
+    static sort(a, b) {
+      return (a.layer < b.layer ? -1 : a.layer > b.layer ? 1 : 0);
+    };
+  }
+
   class UXFCanvas extends HTMLElement {
     static get observedAttributes() { return ['width', 'height', 'src']; }
     constructor() {
@@ -159,18 +225,14 @@
         let lastY = 0;
         // Parse our UXF elements
         for (let ei = 0; ei < elementNodes.length; ei++) {
-          parsedElements.push(this.parseElement(elementNodes[ei]));
-          let curX = parsedElements[ei].coordinates.x + parsedElements[ei].coordinates.w;
-          let curY = parsedElements[ei].coordinates.y + parsedElements[ei].coordinates.h;
+          parsedElements.push(new UXFElement(elementNodes[ei]));
+          let curX = parsedElements[ei].x + parsedElements[ei].w;
+          let curY = parsedElements[ei].y + parsedElements[ei].h;
           if (curX > lastX) lastX = curX;
           if (curY > lastY) lastY = curY;
         }
-        // Sort by their layer attribute
-        parsedElements.sort(function(a, b) {
-          let lA = a.attr.layer || 0,
-              lB = b.attr.layer || 0;
-          return (lA < lB ? -1 : lA > lB ? 1 : 0);
-        });
+        // Sort by the elements
+        parsedElements.sort(UXFElement.sort);
         // Resize our canvas
         if (this.canvas.getAttribute('width') < lastX) {
           this.canvas.setAttribute('width', lastX);
@@ -186,13 +248,17 @@
         this.ctx = this.offscreenCanvas.getContext('2d');
         for (let pi = 0; pi < parsedElements.length; pi++) {
           let element = parsedElements[pi];
-          this.offscreenCanvas.width = element.coordinates.w+1;
-          this.offscreenCanvas.height = element.coordinates.h+1;
+          this.offscreenCanvas.width = element.w+1;
+          this.offscreenCanvas.height = element.h+1;
           this.ctx.save();
           this.ctx.translate(.5,.5);
-          this.drawElement(parsedElements[pi]);
+          // What is this fresh sin:
+          let absoluteX = element.x, absoluteY = element.y;
+          element.x = element.y = 0;
+          // :(
+          this.drawElement(element);
           this.ctx.restore();
-          mainCtx.drawImage(this.offscreenCanvas, element.coordinates.x, element.coordinates.y, element.coordinates.w+1, element.coordinates.h+1);
+          mainCtx.drawImage(this.offscreenCanvas, absoluteX, absoluteY, element.w+1, element.h+1);
         }
         mainCtx.restore();
       }
@@ -352,6 +418,8 @@
         let end = {t: '', s: matches[matches.length-1].e+1, e: text.length};
         end.v = text.substring(end.s, end.e);
         matches.push(end);
+      } else {
+        matches.push({v: text});
       }
       return matches;
     }
@@ -419,7 +487,7 @@
       if (conf) {
         this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
       }
-      return(this.ctx.measureText('M').width);
+      return(this.ctx.measureText('M').width+5);
     }
     getElementValues(element, names, fillWithBlank) {
       let values = names;
@@ -440,11 +508,11 @@
     }
     getLineData(element) {
       let lineData = { style: ['','-',''], points: [] };
-      if (!element.attr.lt) return lineData;
+      if (!element.lt) return lineData;
       // Get our style of line. Returned array should have three UXFs that map to the left arrow, the middle line, and the right arrow respectively.
-      lineData.style = element.attr.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
+      lineData.style = element.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
       // Get coordinates as pairs
-      let points = element.additional_attributes.split(';');
+      let points = element.attrs.split(';');
       for (let i = 0; i < points.length; i+= 2) {
         lineData.points.push(points.slice(i, i+2));
       }
