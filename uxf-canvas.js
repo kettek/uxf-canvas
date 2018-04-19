@@ -77,7 +77,17 @@
       let x = 0, y = 0, w = element.w, h = element.h;
       let lineData = element.getLineData();
       UXF.drawLines(lineData);
-      UXF.drawText(element.lines, {fg: element.fg ? element.fg : 'black', x: x, y: y + UXF.getTextHeight(), w: w, h: h});
+      if (lineData.points.length > 0) {
+        let centerPointIndex = Math.floor(lineData.points.length / 2)-1;
+        let nextPointIndex   = centerPointIndex+1;
+        let centerPoint = lineData.points[centerPointIndex];
+        let nextPoint = lineData.points[nextPointIndex];
+
+        let lX = (centerPoint[0]+nextPoint[0])/2;
+        let lY = (centerPoint[1]+nextPoint[1])/2 - UXF.getTextHeight()/2; // Why do we remove half the height?
+        // TODO: Proper text centering between centerPoint and nextPoint
+        UXF.drawText(element.lines, {fg: element.fg ? element.fg : 'black', x: lX, y: lY, w: w, h: h});
+      }
     }
   };
 
