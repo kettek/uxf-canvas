@@ -24,7 +24,6 @@
         , h: h
         , fg: element.fg
         , bg: element.bg
-        , lineStyle: element.getLineData()[1]
       });
       // Draw Text
       let isHeading = true;
@@ -72,6 +71,20 @@
           UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
+    },
+    'UMLUseCase': function(UXF, element) {
+      let x = 0, y = 0, w = element.w, h = element.h;
+      UXF.drawEllipse(element);
+      for (let i = 0; i < element.lines.length; i++) {
+        // TODO: center vertically
+        y += UXF.getTextHeight();
+        if ((/^(-|--)$/).test(element.lines[i]) ) {
+          UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
+        } else {
+          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: 'center'});
+        }
+      }
+
     },
     'Relation': function(UXF, element) {
       let x = 0, y = 0, w = element.w, h = element.h;
@@ -280,22 +293,47 @@
         umlElements["Default"](this, element);
       }
     }
-    drawBox(boxData) {
-      boxData.fg = boxData.fg || 'black';
-      boxData.lineStyle = boxData.lineStyle || '-';
+    fillShape(data) {
       // Set alpha to be like umlet
       this.ctx.globalAlpha = 0.5;
       // Draw BG
-      if (boxData.bg) {
-        this.ctx.fillStyle = boxData.bg;
-        this.ctx.fillRect(boxData.x, boxData.y, boxData.w, boxData.h);
+      if (data.bg) {
+        this.ctx.fillStyle = data.bg;
+        this.ctx.fill();
       }
       // Reset alpha
       this.ctx.globalAlpha = 1.0;
+    }
+    strokeShape(data) {
+      console.log(data);
+      data.fg = data.fg || 'black';
+      data.lineStyle = data.lineStyle || '-';
       // Set stroke style
-      this.setLineStyle(boxData.lineStyle);
-      // Stroke box
-      this.ctx.strokeRect(boxData.x, boxData.y, boxData.w, boxData.h);
+      this.ctx.strokeStyle = data.fg;
+      if (data instanceof UXFElement) {
+        let ld = data.getLineData().style[1];
+        if (ld) {
+          data.lineStyle = ld;
+        }
+      }
+      this.setLineStyle(data.lineStyle);
+      // Stroke
+      this.ctx.stroke();
+    }
+    drawBox(boxData) {
+      // Get shape
+      this.ctx.rect(boxData.x, boxData.y, boxData.w, boxData.h);
+      // fill and stroke
+      this.fillShape(boxData);
+      this.strokeShape(boxData);
+      this.ctx.clip();
+    }
+    drawEllipse(ellipseData) {
+      this.ctx.beginPath();
+      this.ctx.ellipse(ellipseData.x+ellipseData.w/2, ellipseData.y+ellipseData.h/2, ellipseData.w/2, ellipseData.h/2, 0, 0, Math.PI*2);
+      this.fillShape(ellipseData);
+      this.strokeShape(ellipseData);
+      this.ctx.clip();
     }
     drawLines(lineData) {
       // Begin our line drawing
@@ -383,9 +421,9 @@
     drawTextLine(line, textOptions) {
       let TEXT_PADDING = 2;
       // Clip our rendering to the provided width + height
-      this.ctx.save();
-      this.ctx.rect(textOptions.x, textOptions.y - textOptions.h/2, textOptions.w, textOptions.h);
-      this.ctx.clip();
+      //this.ctx.save();
+      //this.ctx.rect(textOptions.x, textOptions.y - textOptions.h/2, textOptions.w, textOptions.h);
+      //this.ctx.clip();
       // TODO: set our font styling here
       textOptions.y += TEXT_PADDING;
       if (textOptions.align === 'center') {
@@ -397,10 +435,11 @@
       }
       this.renderFormattedText(this.getFormattedText(line), textOptions);
       // Restore to pre-clip state
-      this.ctx.restore();
+      //this.ctx.restore();
     }
     getFormattedText(text) {
-      let regExp = /(\*|\/|_)(.*?)\1/g;
+      //let regExp = /\s*(\*|\/|_)(.*?)\1/g;
+      let regExp = /[^\w]+(\*|\/|_)(.*)\1/g;
       let result = '';
       let matches = [];
       while((result = regExp.exec(text)) !== null) {
