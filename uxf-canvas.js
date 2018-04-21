@@ -282,10 +282,10 @@
         parsedElements.sort(UXFElement.sort);
         // Resize our canvas
         if (this.canvas.getAttribute('width') < lastX) {
-          this.canvas.setAttribute('width', lastX);
+          this.canvas.setAttribute('width', lastX+1);
         }
         if (this.canvas.getAttribute('height') < lastY) {
-          this.canvas.setAttribute('height', lastY);
+          this.canvas.setAttribute('height', lastY+1);
         }
         // Draw!
         let mainCtx = this.canvas.getContext('2d');
