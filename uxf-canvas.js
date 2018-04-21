@@ -6,10 +6,11 @@
       let x = 0, y = 0;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
+          y += UXF.getLineHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+element.w, y]]});
         } else {
+          y += UXF.getLineHeight();
           UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: element.w, h: element.h });
         }
       }
@@ -29,11 +30,12 @@
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
+          y += UXF.getLineHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
+          y += UXF.getLineHeight();
           UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
@@ -46,11 +48,12 @@
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
+          y += UXF.getLineHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
+          y += UXF.getLineHeight();
           UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
@@ -63,11 +66,12 @@
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
+          y += UXF.getLineHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
+          y += UXF.getLineHeight();
           UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
@@ -79,11 +83,12 @@
       let linesH = element.lines.length * UXF.getLineHeight();
       y = origH/2 - linesH/2;
       for (let i = 0; i < element.lines.length; i++) {
-        y += UXF.getLineHeight();
         // TODO: center vertically
         if ((/^(-|--)$/).test(element.lines[i]) ) {
+          y += UXF.getLineHeight();
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
         } else {
+          y += UXF.getLineHeight();
           UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: 'center', valign: 'center'});
         }
       }
@@ -200,6 +205,10 @@
     constructor() {
       super();
       var shadow = this.attachShadow({mode: 'open'});
+      this.conf = {
+        "fontfamily": "serif",
+        "fontsize": 12
+      };
       this.canvas = document.createElement('canvas');
       this.offscreenCanvas = document.createElement('canvas');
       shadow.appendChild(this.canvas);
@@ -247,6 +256,15 @@
       // Draw our diagram(s) -- does UXF even support multiple diagrams in an object?
       let diagramNodes = this.getElementsByTagName('diagram');
       for (let di = 0; di < diagramNodes.length; di++) {
+        // Get our help_text settings
+        let helpTexts = diagramNodes[di].getElementsByTagName('help_text');
+        for (let hi = 0; hi < helpTexts.length; hi++) {
+          let conf = this.parseContents(helpTexts[hi].innerText).extra;
+          if (conf.fontfamily) {
+            conf.fontfamily = conf.fontfamily.replace(/(?<=[a-z])([A-Z])/g, (v)=>{return '-'+v}).toLowerCase();
+          }
+          this.conf = conf;
+        }
         let parsedElements = [];
         let elementNodes = diagramNodes[di].getElementsByTagName('element');
         // Keep track of our largest X and Y values so we can resize the canvas
@@ -491,7 +509,7 @@
         this.ctx.lineTo(textOptions.x+width, textOptions.y+2);
         this.ctx.stroke();
       }
-      this.ctx.font = (textOptions.i ? 'italic ' : '') + (textOptions.b ? 'bold ' : '') + '12px serif';
+      this.ctx.font = (textOptions.i ? 'italic ' : '') + (textOptions.b ? 'bold ' : '') + (textOptions.fontsize ? textOptions.fontsize : this.conf.fontsize)+'px ' + (textOptions.fontfamily ? textOptions.fontfamily : this.conf.fontfamily);
       this.ctx.fillStyle = (textOptions.fg ? textOptions.fg : 'black');
       this.ctx.fillText(text, textOptions.x, textOptions.y);
       return width;
@@ -527,13 +545,13 @@
     }
     getTextHeight(conf) {
       if (conf) {
-        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
+        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + (conf.fontsize ? conf.fontsize : this.conf.fontsize)+'px ' + (conf.fontfamily ? conf.fontfamily : this.conf.fontfamily);
       }
       return(this.ctx.measureText('M').width);
     }
     getLineHeight(conf) {
       if (conf) {
-        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
+        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + (conf.fontsize ? conf.fontsize : this.conf.fontsize)+'px ' + (conf.fontfamily ? conf.fontfamily : this.conf.fontfamily);
       }
       return(this.ctx.measureText('M').width+5);
     }
