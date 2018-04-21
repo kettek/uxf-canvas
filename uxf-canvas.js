@@ -6,7 +6,7 @@
       let x = 0, y = 0;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getTextHeight();
+        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+element.w, y]]});
         } else {
@@ -29,7 +29,7 @@
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getTextHeight();
+        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
@@ -46,7 +46,7 @@
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getTextHeight();
+        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
@@ -63,7 +63,7 @@
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
-        y += UXF.getTextHeight();
+        y += UXF.getLineHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
@@ -75,13 +75,16 @@
     'UMLUseCase': function(UXF, element) {
       let x = 0, y = 0, w = element.w, h = element.h;
       UXF.drawEllipse(element);
+      let origH = h;
+      let linesH = element.lines.length * UXF.getLineHeight();
+      y = origH/2 - linesH/2;
       for (let i = 0; i < element.lines.length; i++) {
+        y += UXF.getLineHeight();
         // TODO: center vertically
-        y += UXF.getTextHeight();
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
         } else {
-          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: 'center'});
+          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: 'center', valign: 'center'});
         }
       }
 
@@ -98,7 +101,7 @@
         let nextPoint = lineData.points[nextPointIndex];
 
         let lX = (centerPoint[0]+nextPoint[0])/2;
-        let lY = (centerPoint[1]+nextPoint[1])/2 - UXF.getTextHeight()/2; // Why do we remove half the height?
+        let lY = (centerPoint[1]+nextPoint[1])/2 - UXF.getLineHeight()/2; // Why do we remove half the height?
         // TODO: Proper text centering between centerPoint and nextPoint
         UXF.drawText(element.lines, {fg: element.fg ? element.fg : 'black', x: lX, y: lY, w: w, h: h});
       }
@@ -415,17 +418,18 @@
       for (let i = 0; i < text.length; i++) {
         this.drawTextLine(text[i], textOptions);
         textOptions.x = startX;
-        textOptions.y += this.getTextHeight(textOptions);
+        textOptions.y += this.getLineHeight(textOptions);
       }
     }
     drawTextLine(line, textOptions) {
       let TEXT_PADDING = 2;
-      // Clip our rendering to the provided width + height
-      //this.ctx.save();
-      //this.ctx.rect(textOptions.x, textOptions.y - textOptions.h/2, textOptions.w, textOptions.h);
-      //this.ctx.clip();
       // TODO: set our font styling here
-      textOptions.y += TEXT_PADDING;
+      if (textOptions.valign != 'center') {
+        textOptions.y += TEXT_PADDING;
+      } else {
+        // Seems hackish.
+        this.ctx.textBaseline = "bottom";
+      }
       if (textOptions.align === 'center') {
         let width = this.ctx.measureText(line).width;
         textOptions.x += textOptions.w/2;
@@ -434,8 +438,6 @@
         textOptions.x += TEXT_PADDING;
       }
       this.renderFormattedText(this.getFormattedText(line), textOptions);
-      // Restore to pre-clip state
-      //this.ctx.restore();
     }
     getFormattedText(text) {
       let regExp = /(?<![a-zA-Z0-9])(\*|\/|_)(.*)\1/g;
@@ -484,7 +486,6 @@
     renderText(text, textOptions) {
       let width = this.ctx.measureText(text).width;
       if (textOptions.u) {
-        let height = this.getTextHeight();
         this.ctx.beginPath();
         this.ctx.moveTo(textOptions.x, textOptions.y+2);
         this.ctx.lineTo(textOptions.x+width, textOptions.y+2);
@@ -525,6 +526,12 @@
       }
     }
     getTextHeight(conf) {
+      if (conf) {
+        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
+      }
+      return(this.ctx.measureText('M').width);
+    }
+    getLineHeight(conf) {
       if (conf) {
         this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
       }
