@@ -89,6 +89,7 @@
     'Relation': function(UXF, element) {
       let x = 0, y = 0, w = element.w, h = element.h;
       let lineData = element.getLineData();
+      lineData.fg = element.fg;
       UXF.drawLines(lineData);
       if (lineData.points.length > 0) {
         let centerPointIndex = Math.floor(lineData.points.length / 2)-1;
@@ -170,7 +171,9 @@
     }
     getLineData() {
       let lineData = { style: ['','-',''], points: [] };
-      if (!this.lt) return lineData;
+      if (!this.lt) {
+        this.lt = "-";
+      }
       // Get our style of line. Returned array should have three elements that map to the left arrow, the middle line, and the right arrow respectively.
       lineData.style = this.lt.match(/([^-.]*)([^>]*)(.*)/).slice(1);
       // Get coordinates as pairs
@@ -337,14 +340,12 @@
     drawLines(lineData) {
       // Begin our line drawing
       this.ctx.lineWidth = 1;
+      this.ctx.strokeStyle = lineData.fg || 'black';
       // Set our line type
       this.setLineStyle(lineData.style[1]);
       // Make the line path
       this.ctx.beginPath();
       for (let i = 0; i < lineData.points.length; i++) {
-        // Get our coordinate pair
-        let x = parseInt(lineData.points[i][0]), y = parseInt(lineData.points[i][1]);
-        // Create the line
         this.ctx.lineTo(lineData.points[i][0], lineData.points[i][1]);
       }
       this.ctx.stroke();
