@@ -34,7 +34,7 @@
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          UXF.drawTextLine(element.lines[i], {fg: element.attr.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
+          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
         }
       }
     },
@@ -287,7 +287,7 @@
       }
     }
     drawElement(element) {
-      if (umlElements[element.id]) {
+      if (UXFCanvas.hasElementSupport(element.id)) {
         umlElements[element.id](this, element);
       } else {
         umlElements["Default"](this, element);
@@ -305,7 +305,6 @@
       this.ctx.globalAlpha = 1.0;
     }
     strokeShape(data) {
-      console.log(data);
       data.fg = data.fg || 'black';
       data.lineStyle = data.lineStyle || '-';
       // Set stroke style
@@ -530,6 +529,14 @@
         this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + '12px serif';
       }
       return(this.ctx.measureText('M').width+5);
+    }
+
+    static hasElementSupport(name) {
+      if (umlElements[name]) return true;
+      return false;
+    }
+    static addElementSupport(name, cb) {
+      umlElements[name] = cb;
     }
   }
   window.customElements.define('uxf-canvas', UXFCanvas);
