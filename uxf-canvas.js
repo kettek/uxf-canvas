@@ -437,8 +437,7 @@
       //this.ctx.restore();
     }
     getFormattedText(text) {
-      //let regExp = /\s*(\*|\/|_)(.*?)\1/g;
-      let regExp = /[^\w]+(\*|\/|_)(.*)\1/g;
+      let regExp = /(?<![a-zA-Z0-9])(\*|\/|_)(.*)\1/g;
       let result = '';
       let matches = [];
       while((result = regExp.exec(text)) !== null) {
