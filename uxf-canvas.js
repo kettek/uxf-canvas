@@ -240,8 +240,14 @@
         while (self.firstChild) {
           self.removeChild(self.firstChild);
         }
-        for (let i = 0; i < link.import.getElementsByTagName('body')[0].children.length; i++) {
-          self.appendChild(link.import.getElementsByTagName('body')[0].children[i]);
+        let body = link.import.getElementsByTagName('body')[0];
+        if (!body) {
+          let parser = new DOMParser();
+          let doc = parser.parseFromString(link.import.innerHTML, "text/html");
+          body = doc.body;
+        }
+        for (let i = 0; i < body.children.length; i++) {
+          self.appendChild(body.children[i]);
         }
         self.draw();
         // Remove link from real DOM
@@ -254,14 +260,14 @@
     }
     draw() {
       // Draw our diagram(s) -- does UXF even support multiple diagrams in an object?
-      let diagramNodes = this.getElementsByTagName('diagram');
+      let diagramNodes = this.children;
       for (let di = 0; di < diagramNodes.length; di++) {
         // Get our help_text settings
         let helpTexts = diagramNodes[di].getElementsByTagName('help_text');
         for (let hi = 0; hi < helpTexts.length; hi++) {
           let conf = this.parseContents(helpTexts[hi].innerText).extra;
           if (conf.fontfamily) {
-            conf.fontfamily = conf.fontfamily.replace(/(?<=[a-z])([A-Z])/g, (v)=>{return '-'+v}).toLowerCase();
+            //conf.fontfamily = conf.fontfamily.replace(/(?<=[a-z])([A-Z])/g, (v)=>{return '-'+v}).toLowerCase();
           }
           this.conf = conf;
         }
@@ -458,7 +464,7 @@
       this.renderFormattedText(this.getFormattedText(line), textOptions);
     }
     getFormattedText(text) {
-      let regExp = /(?<![a-zA-Z0-9])(\*|\/|_)(.*)\1/g;
+      let regExp = /(?:^|[^a-zA-Z0-9])(\*|\/|_)(.*)\1/g;
       let result = '';
       let matches = [];
       while((result = regExp.exec(text)) !== null) {

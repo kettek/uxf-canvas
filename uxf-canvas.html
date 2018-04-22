@@ -1,10 +1,11 @@
 <!doctype html>
 <head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.2.0/webcomponents-lite.js"></script>
   <script type='text/javascript' src='./uxf-canvas.js'></script>
 </head>
 <body>
   <h1> Embedded </h1>
-  <uxf-canvas style='border: 1px solid black' width='400' height='300'>
+  <uxf-canvas style='border: 1px solid black'>
     <diagram program="umlet" version="14.2">
       <zoom_level>10</zoom_level>
       <element>
@@ -146,6 +147,6 @@
   </uxf-canvas>
   <hr />
   <h1> External </h1>
-  <uxf-canvas src='./test.uxf' width='400' height='300'></uxf-canvas>
+  <uxf-canvas src='./test.uxf'></uxf-canvas>
 </body>
 </html>
