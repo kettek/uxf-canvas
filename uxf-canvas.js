@@ -5,7 +5,6 @@
       // Draw Lines
       let x = 0, y = 0;
       for (let i = 0; i < element.lines.length; i++) {
-        // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+element.w, y]]});
@@ -28,7 +27,6 @@
       // Draw Text
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
-        // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
@@ -45,7 +43,6 @@
       // Draw Text
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
-        // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
@@ -62,7 +59,6 @@
       // Draw Text
       let isHeading = true;
       for (let i = 0; i < element.lines.length; i++) {
-        // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
@@ -79,7 +75,6 @@
       let linesH = element.lines.length * UXF.getTextHeight();
       y = origH/2 - linesH/2;
       for (let i = 0; i < element.lines.length; i++) {
-        // TODO: center vertically
         if ((/^(-|--)$/).test(element.lines[i]) ) {
           y += UXF.getTextHeight();
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
@@ -202,18 +197,13 @@
       var shadow = this.attachShadow({mode: 'open'});
       this.conf = {
         fontFamily: "serif",
-        fontSize: 12,
+        fontSize: 14,
         zoomLevel: 1.0
       };
       this.canvas = document.createElement('canvas');
       this.offscreenCanvas = document.createElement('canvas');
-      this.dummyText = document.createElement('div');
-      this.dummyText.innerHTML = 'M';
-      this.dummyText.style.position = 'absolute';
-      this.dummyText.style.top = 0;
-      this.dummyText.style.left = 0;
-      this.dummyText.style.visibility = 'hidden';
-      shadow.appendChild(this.dummyText);
+      this.dummyCanvas = document.createElement('canvas');
+      this.textHeightCache = {};
       shadow.appendChild(this.canvas);
     }
     connectedCallback() {
@@ -469,19 +459,21 @@
         dimensions.width = textOptions.w;
         this.drawLines({style: ['','--',''], points: [[textOptions.x, textOptions.y], [textOptions.x+textOptions.w, textOptions.y]]});
       } else {
+        // TODO: Probably render all text to another offscreen canvas then render that to our element offscreen canvas. This would make centering easier.
+        let formattedText = this.getFormattedText(line);
         // Render Text
         this.ctx.textBaseline = "top";
         if (textOptions.valign != 'center') {
           textOptions.y += TEXT_PADDING;
         }
         if (textOptions.align === 'center') {
-          let width = this.getTextWidth(line, textOptions);
+          let width = this.getTextWidth(this.getPlainTextFromFormattedText(formattedText), textOptions);
           textOptions.x += textOptions.w/2;
           textOptions.x -= width/2;
         } else {
           textOptions.x += TEXT_PADDING;
         }
-        dimensions = this.renderFormattedText(this.getFormattedText(line), textOptions);
+        dimensions = this.renderFormattedText(formattedText, textOptions);
       }
       return dimensions;
     }
@@ -511,6 +503,17 @@
         matches.push({v: text});
       }
       return matches;
+    }
+    getPlainTextFromFormattedText(formattedText) {
+      let str = '';
+      for (let i = 0; i < formattedText.length; i++) {
+        if (formattedText[i].c && formattedText[i].c.length > 0) {
+          str += this.getPlainTextFromFormattedText(formattedText[i].c);
+        } else {
+          str += formattedText[i].v;
+        }
+      }
+      return str;
     }
     renderFormattedText(formattedText, conf) {
       let offsetX = 0;
@@ -584,9 +587,42 @@
     }
     getTextHeight(conf) {
       conf = Object.assign(this.conf, conf);
-      this.dummyText.style.fontFamily = conf.fontFamily;
-      this.dummyText.style.fontSize = conf.fontSize+'px';
-      return this.dummyText.offsetHeight;
+
+      let fontStyle = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + conf.fontSize+'px ' + conf.fontFamily;
+
+      if (this.textHeightCache[fontStyle]) {
+        return this.textHeightCache[fontStyle];
+      }
+
+      this.dummyCanvas.width  = this.getTextWidth('M', conf);
+      this.dummyCanvas.height = this.dummyCanvas.width*2;
+      let ctx = this.dummyCanvas.getContext('2d');
+      ctx.font = fontStyle;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("M", 0, 0);
+      let data = ctx.getImageData(0, 0, this.dummyCanvas.width, this.dummyCanvas.height).data;
+      let top = -1, bottom = -1;
+      for (let y = 0; y < this.dummyCanvas.height; y++) {
+        for (let x = 0; x < this.dummyCanvas.width; x++) {
+          if (data[((this.dummyCanvas.width * y) + x) * 4 + 3] > 0) {
+            top = y;
+            break;
+          }
+        }
+        if (top != -1) break;
+      }
+      for (let y = this.dummyCanvas.height; y > 0; y--) {
+        for (let x = 0; x < this.dummyCanvas.width; x++) {
+          if (data[((this.dummyCanvas.width * y) + x) * 4 + 3] > 0) {
+            bottom = y;
+            break;
+          }
+        }
+        if (bottom != -1) break;
+      }
+
+      return this.textHeightCache[fontStyle] = (bottom-top)*1.75;
     }
 
     static hasElementSupport(name) {
