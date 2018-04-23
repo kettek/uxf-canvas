@@ -7,11 +7,10 @@
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
-          y += UXF.getLineHeight()/2;
+          y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+element.w, y]]});
         } else {
-          y += UXF.getLineHeight();
-          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: element.w, h: element.h });
+          y += UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: element.w, h: element.h }).height;
         }
       }
     },
@@ -31,12 +30,11 @@
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
-          y += UXF.getLineHeight()/2;
+          y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          y += UXF.getLineHeight();
-          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
+          y += UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''}).height;
         }
       }
     },
@@ -49,12 +47,11 @@
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
-          y += UXF.getLineHeight()/2;
+          y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          y += UXF.getLineHeight();
-          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
+          y += UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''}).height;
         }
       }
     },
@@ -67,12 +64,11 @@
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: crop by width and height
         if ((/^(-|--)$/).test(element.lines[i]) ) {
-          y += UXF.getLineHeight()/2;
+          y += UXF.getTextHeight()/2;
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
           isHeading = false;
         } else {
-          y += UXF.getLineHeight();
-          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''});
+          y += UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: isHeading ? 'center' : ''}).height;
         }
       }
     },
@@ -80,16 +76,15 @@
       let x = 0, y = 0, w = element.w, h = element.h;
       UXF.drawEllipse(element);
       let origH = h;
-      let linesH = element.lines.length * UXF.getLineHeight();
+      let linesH = element.lines.length * UXF.getTextHeight();
       y = origH/2 - linesH/2;
       for (let i = 0; i < element.lines.length; i++) {
         // TODO: center vertically
         if ((/^(-|--)$/).test(element.lines[i]) ) {
-          y += UXF.getLineHeight();
+          y += UXF.getTextHeight();
           UXF.drawLines({style: ['','--',''], points: [[x, y], [x+w, y]]});
         } else {
-          y += UXF.getLineHeight();
-          UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: 'center', valign: 'center'});
+          y += UXF.drawTextLine(element.lines[i], {fg: element.fg, x: x, y: y, w: w, h: h, align: 'center', valign: 'center'}).height;
         }
       }
 
@@ -106,7 +101,7 @@
         let nextPoint = lineData.points[nextPointIndex];
 
         let lX = (centerPoint[0]+nextPoint[0])/2;
-        let lY = (centerPoint[1]+nextPoint[1])/2 - UXF.getLineHeight()/2; // Why do we remove half the height?
+        let lY = (centerPoint[1]+nextPoint[1])/2 - UXF.getTextHeight()/2; // Why do we remove half the height?
         // TODO: Proper text centering between centerPoint and nextPoint
         UXF.drawText(element.lines, {fg: element.fg ? element.fg : 'black', x: lX, y: lY, w: w, h: h});
       }
@@ -206,11 +201,19 @@
       super();
       var shadow = this.attachShadow({mode: 'open'});
       this.conf = {
-        "fontfamily": "serif",
-        "fontsize": 12
+        fontFamily: "serif",
+        fontSize: 12,
+        zoomLevel: 1.0
       };
       this.canvas = document.createElement('canvas');
       this.offscreenCanvas = document.createElement('canvas');
+      this.dummyText = document.createElement('div');
+      this.dummyText.innerHTML = 'M';
+      this.dummyText.style.position = 'absolute';
+      this.dummyText.style.top = 0;
+      this.dummyText.style.left = 0;
+      this.dummyText.style.visibility = 'hidden';
+      shadow.appendChild(this.dummyText);
       shadow.appendChild(this.canvas);
     }
     connectedCallback() {
@@ -262,15 +265,27 @@
       // Draw our diagram(s) -- does UXF even support multiple diagrams in an object?
       let diagramNodes = this.children;
       for (let di = 0; di < diagramNodes.length; di++) {
-        // Get our help_text settings
-        let helpTexts = diagramNodes[di].getElementsByTagName('help_text');
-        for (let hi = 0; hi < helpTexts.length; hi++) {
-          let conf = this.parseContents(helpTexts[hi].innerText).extra;
-          if (conf.fontfamily) {
-            //conf.fontfamily = conf.fontfamily.replace(/(?<=[a-z])([A-Z])/g, (v)=>{return '-'+v}).toLowerCase();
-          }
-          this.conf = conf;
+        // Get our zoom_level
+        let zoomLevel = diagramNodes[di].getElementsByTagName('zoom_level')[0];
+        if (zoomLevel) {
+          this.conf.zoomLevel = parseFloat(zoomLevel.innerText) / 10;
         }
+        // Get our help_text settings
+        let helpText = diagramNodes[di].getElementsByTagName('help_text')[0];
+        if (helpText) {
+          let conf = this.parseContents(helpText.innerText).extra;
+          console.log(conf);
+          if ((/^(SansSerif)/).test(conf.fontfamily)) {
+            this.conf.fontFamily = "sans-serif";
+          } else if ((/^(Monospaced)/).test(conf.fontfamily)) {
+            this.conf.fontFamily = "monospace";
+          }
+          if (conf.fontsize) {
+            this.conf.fontSize = parseInt(conf.fontsize)
+          }
+        }
+        this.conf.fontSize *= this.conf.zoomLevel;
+        // Parse our elements
         let parsedElements = [];
         let elementNodes = diagramNodes[di].getElementsByTagName('element');
         // Keep track of our largest X and Y values so we can resize the canvas
@@ -373,18 +388,18 @@
       // Make the line path
       this.ctx.beginPath();
       for (let i = 0; i < lineData.points.length; i++) {
-        this.ctx.lineTo(lineData.points[i][0], lineData.points[i][1]);
+        this.ctx.lineTo(lineData.points[i][0]*this.conf.zoomLevel, lineData.points[i][1]*this.conf.zoomLevel);
       }
       this.ctx.stroke();
       // Draw arrow heads
       if (lineData.style[0]) {
-        let x1 = lineData.points[0][0], y1 = lineData.points[0][1];
-        let x2 = lineData.points[1][0], y2 = lineData.points[1][1];
+        let x1 = lineData.points[0][0]*this.conf.zoomLevel, y1 = lineData.points[0][1] * this.conf.zoomLevel;
+        let x2 = lineData.points[1][0]*this.conf.zoomLevel, y2 = lineData.points[1][1] * this.conf.zoomLevel;
         this.drawArrow(lineData.style[0], x1, y1, x2, y2);
       }
       if (lineData.style[2]) {
-        let x1 = lineData.points[lineData.points.length-1][0], y1 = lineData.points[lineData.points.length-1][1];
-        let x2 = lineData.points[lineData.points.length-2][0], y2 = lineData.points[lineData.points.length-2][1];
+        let x1 = lineData.points[lineData.points.length-1][0]*this.conf.zoomLevel, y1 = lineData.points[lineData.points.length-1][1]*this.conf.zoomLevel;
+        let x2 = lineData.points[lineData.points.length-2][0]*this.conf.zoomLevel, y2 = lineData.points[lineData.points.length-2][1]*this.conf.zoomLevel;
         this.drawArrow(lineData.style[2], x1, y1, x2, y2);
       }
     }
@@ -395,8 +410,8 @@
     drawArrowHead(type, x, y, radians) {
       // FIXME: actually properly render inverted symbols
       // TODO: add '(+)', '()', 'x', '>[text]' '>|', '(', '[text]'
-      let headLength    = 10;
-      let headWidth     = 5;
+      let headLength    = 10 * this.conf.zoomLevel;
+      let headWidth     = 5 * this.conf.zoomLevel;
       let lineColor     = 'black';
       let lineColorInv  = 'white';
       this.ctx.save();
@@ -442,26 +457,33 @@
       for (let i = 0; i < text.length; i++) {
         this.drawTextLine(text[i], textOptions);
         textOptions.x = startX;
-        textOptions.y += this.getLineHeight(textOptions);
+        textOptions.y += this.getTextHeight(textOptions);
       }
     }
     drawTextLine(line, textOptions) {
       let TEXT_PADDING = 2;
-      // TODO: set our font styling here
-      if (textOptions.valign != 'center') {
-        textOptions.y += TEXT_PADDING;
+      let dimensions = {width: 0, height: 0};
+      if ((/^(-|--)$/).test(line) ) {
+        // Render '-' and '--' as a full width line
+        dimensions.height += this.getTextHeight()/2;
+        dimensions.width = textOptions.w;
+        this.drawLines({style: ['','--',''], points: [[textOptions.x, textOptions.y], [textOptions.x+textOptions.w, textOptions.y]]});
       } else {
-        // Seems hackish.
-        this.ctx.textBaseline = "bottom";
+        // Render Text
+        this.ctx.textBaseline = "top";
+        if (textOptions.valign != 'center') {
+          textOptions.y += TEXT_PADDING;
+        }
+        if (textOptions.align === 'center') {
+          let width = this.getTextWidth(line, textOptions);
+          textOptions.x += textOptions.w/2;
+          textOptions.x -= width/2;
+        } else {
+          textOptions.x += TEXT_PADDING;
+        }
+        dimensions = this.renderFormattedText(this.getFormattedText(line), textOptions);
       }
-      if (textOptions.align === 'center') {
-        let width = this.ctx.measureText(line).width;
-        textOptions.x += textOptions.w/2;
-        textOptions.x -= width/2;
-      } else {
-        textOptions.x += TEXT_PADDING;
-      }
-      this.renderFormattedText(this.getFormattedText(line), textOptions);
+      return dimensions;
     }
     getFormattedText(text) {
       let regExp = /(?:^|[^a-zA-Z0-9])(\*|\/|_)(.*)\1/g;
@@ -492,6 +514,8 @@
     }
     renderFormattedText(formattedText, conf) {
       let offsetX = 0;
+      let offsetY = 0;
+      let dimensions = {width: 0, height: 0};
       for (let i = 0; i < formattedText.length; i++) {
         let textOptions = Object.assign({}, conf);
         textOptions.u   = textOptions.u || formattedText[i].t === '_';
@@ -499,26 +523,30 @@
         textOptions.b   = textOptions.b || formattedText[i].t === '*';
         textOptions.x   += offsetX;
         if (formattedText[i].c && formattedText[i].c.length > 0) {
-          offsetX += this.renderFormattedText(formattedText[i].c, textOptions);
+          dimensions = this.renderFormattedText(formattedText[i].c, textOptions);
+          offsetX += dimensions.width;
         } else {
-          offsetX += this.renderText(formattedText[i].v, textOptions);
+          dimensions = this.renderText(formattedText[i].v, textOptions);
+          offsetX += dimensions.width;
         }
       }
       conf.x += offsetX;
-      return offsetX;
+      return {width: offsetX, height: dimensions.height};
     }
     renderText(text, textOptions) {
-      let width = this.ctx.measureText(text).width;
+      let width = this.getTextWidth(text, textOptions);
+      let height = this.getTextHeight(text, textOptions);
       if (textOptions.u) {
+        let underlineOffset = height - 1;
         this.ctx.beginPath();
-        this.ctx.moveTo(textOptions.x, textOptions.y+2);
-        this.ctx.lineTo(textOptions.x+width, textOptions.y+2);
+        this.ctx.moveTo(textOptions.x, underlineOffset+textOptions.y);
+        this.ctx.lineTo(textOptions.x+width, underlineOffset+textOptions.y);
         this.ctx.stroke();
       }
-      this.ctx.font = (textOptions.i ? 'italic ' : '') + (textOptions.b ? 'bold ' : '') + (textOptions.fontsize ? textOptions.fontsize : this.conf.fontsize)+'px ' + (textOptions.fontfamily ? textOptions.fontfamily : this.conf.fontfamily);
+      this.ctx.font = (textOptions.i ? 'italic ' : '') + (textOptions.b ? 'bold ' : '') + (textOptions.fontSize ? textOptions.fontSize : this.conf.fontSize)+'px ' + (textOptions.fontFamily ? textOptions.fontFamily : this.conf.fontFamily);
       this.ctx.fillStyle = (textOptions.fg ? textOptions.fg : 'black');
       this.ctx.fillText(text, textOptions.x, textOptions.y);
-      return width;
+      return {width: width, height: height};
     }
     parseContents(source) {
       let data = {lines: [], extra: {}};
@@ -549,17 +577,16 @@
         this.ctx.setLineDash([2, 2]);
       }
     }
-    getTextHeight(conf) {
-      if (conf) {
-        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + (conf.fontsize ? conf.fontsize : this.conf.fontsize)+'px ' + (conf.fontfamily ? conf.fontfamily : this.conf.fontfamily);
-      }
-      return(this.ctx.measureText('M').width);
+    getTextWidth(text, conf) {
+      conf = Object.assign(this.conf, conf);
+      this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + (conf.fontSize ? conf.fontSize : this.conf.fontSize)+'px ' + (conf.fontFamily ? conf.fontFamily : this.conf.fontFamily);
+      return(this.ctx.measureText(text).width);
     }
-    getLineHeight(conf) {
-      if (conf) {
-        this.ctx.font = (conf.i ? 'italic ' : '') + (conf.b ? 'bold ' : '') + (conf.fontsize ? conf.fontsize : this.conf.fontsize)+'px ' + (conf.fontfamily ? conf.fontfamily : this.conf.fontfamily);
-      }
-      return(this.ctx.measureText('M').width+5);
+    getTextHeight(conf) {
+      conf = Object.assign(this.conf, conf);
+      this.dummyText.style.fontFamily = conf.fontFamily;
+      this.dummyText.style.fontSize = conf.fontSize+'px';
+      return this.dummyText.offsetHeight;
     }
 
     static hasElementSupport(name) {
