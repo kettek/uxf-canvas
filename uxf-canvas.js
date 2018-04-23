@@ -264,7 +264,6 @@
         let helpText = diagramNodes[di].getElementsByTagName('help_text')[0];
         if (helpText) {
           let conf = this.parseContents(helpText.innerText).extra;
-          console.log(conf);
           if ((/^(SansSerif)/).test(conf.fontfamily)) {
             this.conf.fontFamily = "sans-serif";
           } else if ((/^(Monospaced)/).test(conf.fontfamily)) {
